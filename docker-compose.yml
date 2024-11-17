@@ -30,6 +30,55 @@ services:
     network_mode: "service:newsapi_accessor"
 
 
+  users_db_accessor:
+    build:
+      context: .
+      dockerfile: UsersDBAccessor/Dockerfile
+    ports:
+      - "50052:50052"
+    depends_on:
+      - redis
+      - placement
+      - postgres_users_db
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3501
+        - DAPR_GRPC_PORT=50002
+
+  dapr_sidecar_users_db_accessor:
+    image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    command: [ "./daprd",
+               "--app-id", "users_db_accessor",
+               "--app-port", "50052",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3501",
+               "--dapr-grpc-port", "50002"]
+    depends_on:
+      - users_db_accessor
+    network_mode: "service:users_db_accessor"
+
+  postgres_users_db:
+    image: "postgres:15-alpine"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres_users_db
+      - POSTGRES_DB_NAME=postgres_users_db
+    ports:
+      - "5432:5432"
+    networks:
+        - dapr-news-aggregator-network
+    volumes:
+        - postgres-data:/var/lib/postgresql/data
+
+
 
   placement:
     image: "daprio/dapr"
