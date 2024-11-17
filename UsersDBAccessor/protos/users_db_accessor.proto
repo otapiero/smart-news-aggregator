@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package usersdb;
+
+option go_package = "usersdb";
+option java_multiple_files = true;
+option java_package = "com.example.usersdb";
+option csharp_namespace = "UsersDbAccessor";
+
+message User {
+    string user_id = 1;
+    string email = 2;
+    string username = 3;
+    string password = 4;
+    string country = 5;
+    string language = 6;
+    repeated string categories = 7;
+    string created_at = 8;
+    string updated_at = 9;
+    bool is_active = 10;
+    string notification_channel = 11;
+    string telegram_user_id = 12;
+}
+
+message CreateUserRequest {
+    User user = 1;
+}
+
+message CreateUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message GetUserResponse {
+    User user = 1;
+    string message = 2;
+}
+
+message GetUserPreferencesResponse {
+    repeated string categories = 1;
+    string language = 2;
+    string country = 3;
+    string telegram_user_id = 4;
+    string email = 5;
+    string notification_channel = 6;
+    string username = 7;
+    string message = 8;
+}
+
+message UpdateUserRequest {
+    User user = 1;
+}
+
+message UpdateUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message DeleteUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ByEmailRequest {
+    string email =1;
+    string password =2;
+}
+
+message ByIdRequest {
+    string user_id =1;
+}
+
+
+service UsersDbAccessor {
+    rpc GetUserPreferences(ByEmailRequest) returns (GetUserPreferencesResponse);
+    rpc UpdateUserByEmail(UpdateUserRequest) returns (UpdateUserResponse);
+    rpc DeleteUserByEmail(ByEmailRequest) returns (DeleteUserResponse);
+
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc GetUser(ByIdRequest) returns (GetUserResponse);
+    rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+    rpc DeleteUser(ByIdRequest) returns (DeleteUserResponse);
+}
