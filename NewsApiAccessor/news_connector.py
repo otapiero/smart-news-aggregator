@@ -2,7 +2,7 @@ from typing import Union, Dict, List
 
 import dotenv
 
-from NewsApiAccessor.news_api_config import NewsApiConfig
+from news_api_config import NewsApiConfig
 import logging
 import time
 import asyncio
