@@ -1,21 +1,5 @@
 from typing import List
 
-import protos.users_db_accessor_pb2 as users_db_accessor_pb2
-
-"""message User {
-    string user_id = 1;
-    string email = 2;
-    string username = 3;
-    string country = 4;
-    string language = 5;
-    repeated string categories = 6;
-    string created_at = 7;
-    string updated_at = 8;
-    bool is_active = 9;
-    string notification_channel = 10;
-    string telegram_user_id = 11;
-}"""
-
 
 class User:
     def __init__(
@@ -51,42 +35,6 @@ class User:
 
     def __eq__(self, other):
         return isinstance(other, User) and self.to_dict() == other.to_dict()
-
-    def to_proto(self):
-        user = users_db_accessor_pb2.User()
-        user.user_id = self.user_id
-        user.email = self.email
-        user.username = self.username
-        user.password = self.password
-        user.country = self.country
-        user.language = self.language
-        user.categories.extend(self.categories)
-        user.created_at = self.created_at
-        user.updated_at = self.updated_at
-        user.is_active = self.is_active
-        user.notification_channel = self.notification_channel
-        user.telegram_user_id = self.telegram_user_id
-        return user
-
-    @staticmethod
-    def from_proto(user) -> "User":
-        try:
-            return User(
-                user.user_id,
-                user.email,
-                user.username,
-                user.password,
-                user.country,
-                user.language,
-                list(user.categories),
-                user.created_at,
-                user.updated_at,
-                user.is_active,
-                user.notification_channel,
-                user.telegram_user_id,
-            )
-        except AttributeError as e:
-            raise ValueError(f"Invalid User protobuf message: {e}")
 
     @staticmethod
     def from_dict(user_dict):
