@@ -1,263 +1,188 @@
-
-from dapr.ext.grpc import App, InvokeMethodResponse
-from pyexpat.errors import messages
+from flask import Flask, request
 
 from user import User
 from users_db_accessor import UsersDBAccessor
-import protos.users_db_accessor_pb2 as users_db_accessor_pb2
 import logging
 import asyncio
+from http import HTTPStatus
 
 logging.basicConfig(level=logging.INFO)
-app = App()
+logger = logging.getLogger(__name__)
 
+app = Flask(__name__)
 users_db_accessor = UsersDBAccessor()
 
 
-app.method(name="CreateUser")
-
-
-def CreateUser(request):
+@app.route("/CreateUser", methods=["POST"])
+async def CreateUser():
     try:
-        logging.info("Creating user")
-        request_proto = users_db_accessor_pb2.CreateUserRequest()
-        request_proto.ParseFromString(request.data)
-        user = User.from_proto(request_proto.user)
+        logger.info("Creating user")
+        user = request.json
+        logger.info(f"User: {user}")
+        user = User.from_dict(user)
         # check if user already exists in the database by email
-        if users_db_accessor.get_user_by_email(user.email):
-            logging.error("User already exists")
-            return InvokeMethodResponse(
-                data=b'{"error": "user email already exists"}',
-                content_type="application/json",
-                headers=(("internal-status", "400"),),
-            )
+        if await users_db_accessor.get_user_by_email(user.email):
+            logger.error("User already exists")
+            return {"error": "user email already exists"}, HTTPStatus.BAD_REQUEST
         # check if user already exists in the database by user_id
-        if users_db_accessor.get_user_by_id(user.user_id):
-            logging.error("User already exists")
-            return InvokeMethodResponse(
-                data=b'{"error": "User id already exists"}',
-                content_type="application/json",
-                headers=(("internal-status", "400"),),
-            )
-        users_db_accessor.create_user(user)
-        logging.info(f"Created user with id {user.user_id}")
-        return users_db_accessor_pb2.CreateUserResponse(
-            bool=True, message="User created", headers=(("internal-status", "201"),)
-        )
+        if await users_db_accessor.get_user_by_id(user.user_id):
+            logger.error("User already exists")
+            return {"error": "User id already exists"}, HTTPStatus.BAD_REQUEST
+        await users_db_accessor.create_user(user)
+        logger.info(f"Created user with id {user.user_id}")
+        return {"success": True}, HTTPStatus.OK
+
     except Exception as e:
-        logging.error(f"Error creating user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error creating user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@app.method(name="GetUser")
-async def GetUser(request):
+@app.route("/GetUser", methods=["GET"])
+async def GetUser():
     try:
-        logging.info("Getting user")
-        request_proto = users_db_accessor_pb2.ByIdRequest()
-        request_proto.ParseFromString(request.data)
-        user = await users_db_accessor.get_user_by_id(request_proto.user_id)
+        logger.info("Getting user")
+        user_id = request.args.get("user_id")
+        user = await users_db_accessor.get_user_by_id(user_id)
         if not user:
-            logging.error("User not found")
-            return InvokeMethodResponse(
-                data=b'{"error": "User not found"}',
-                content_type="application/json",
-                headers=(("internal-status", "404"),),
-            )
-        logging.info(f"Getting user with id {request_proto.user_id}")
-        return users_db_accessor_pb2.GetUserResponse(
-            user=user.to_proto(),message="success"
-            ,headers=(("internal-status", "200"),)
-        )
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        logger.info(f"Getting user with id {user_id}")
+        return user.to_dict(), HTTPStatus.OK
     except Exception as e:
-        logging.error(f"Error getting user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error getting user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@app.method(name="GetUserPreferencesByEmailAddress")
-async def GetUserPreferencesByEmailAddress(request):
+@app.route("/GetUserPreferencesByEmailAddress", methods=["GET"])
+async def GetUserPreferencesByEmailAddress():
     try:
-        logging.info("Getting user preferences")
-        request_proto = users_db_accessor_pb2.ByEmailRequest()
-        request_proto.ParseFromString(request.data)
-        user = await users_db_accessor.get_user_by_email(request_proto.email)
+        logger.info("Getting user preferences")
+        email = request.args.get("email")
+        password = request.args.get("password")
+        user = await users_db_accessor.get_user_by_email(email)
         if not user:
-            logging.error("User not found")
-            return users_db_accessor_pb2.GetUserPreferencesResponse(
-                message="Email User not found", headers=(("internal-status", "404"),)
-            )
-        if user.password != request_proto.password:
-            logging.error(f"Invalid password for user {user.email}")
-            return users_db_accessor_pb2.GetUserPreferencesResponse(
-                message=f"Invalid password for user {user.email}", headers=(("internal-status", "401"),)
-            )
-        logging.info(f"Getting user preferences with email {request_proto.email}")
-        return users_db_accessor_pb2.GetUserPreferencesResponse(
-            categories = user.categories,
-            language = user.language,
-            country = user.country,
-            telegram_user_id = user.telegram_user_id,
-            email = user.email,
-            notification_channel = user.notification_channel,
-            username = user.username,
-            message = "success",
-            headers=(("internal-status", "200"),),
-        )
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        if user.password != password:
+            logger.error(f"Invalid password for user {user.email}")
+            return {
+                "error": f"Invalid password for user {user.email}"
+            }, HTTPStatus.UNAUTHORIZED
+        if not user.is_active:
+            logger.error(f"User {user.email} is not active")
+            return {"error": f"User {user.email} is not active"}, HTTPStatus.FORBIDDEN
+        logger.info(f"Getting user preferences with email {email}")
+        return user.to_dict(), HTTPStatus.OK
     except Exception as e:
-        logging.error(f"Error getting user preferences: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error getting user preferences: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
-@app.method(name="UpdateUser")
-async def UpdateUser(request):
+
+@app.route("/UpdateUser", methods=["PUT"])
+async def UpdateUser():
     try:
-        logging.info("Updating user")
-        request_proto = users_db_accessor_pb2.UpdateUserRequest()
-        request_proto.ParseFromString(request.data)
-        user = await users_db_accessor.get_user_by_id(request_proto.user.user_id)
-        if not user:
-            logging.error("User not found")
-            return InvokeMethodResponse(
-                data=b'{"error": "User not found"}',
-                content_type="application/json",
-                headers=(("internal-status", "404"),),
-            )
-        user = User.from_proto(request_proto.user)
-        await users_db_accessor.update_user_by_id(user_id=user.user_id, user=user)
-
-        logging.info(f"Updated user with id {user.user_id}")
-        return users_db_accessor_pb2.UpdateUserResponse(
-            bool=True, message="User updated", headers=(("internal-status", "200"),)
-        )
-    except Exception as e:
-        logging.error(f"Error updating user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
-
-
-@app.method(name="UpdateUserByEmail")
-async def UpdateUserByEmail(request):
-    try:
-        logging.info("Updating user by email")
-        request_proto = users_db_accessor_pb2.UpdateUserRequest()
-        request_proto.ParseFromString(request.data)
-        old_user = await users_db_accessor.get_user_by_email(request_proto.email)
-
+        logger.info("Updating user")
+        user = request.json
+        user = User.from_dict(user)
+        old_user = await users_db_accessor.get_user_by_id(user.user_id)
         if not old_user:
-            logging.error("User not found")
-            return InvokeMethodResponse(
-                data=b'{"error": "User not found"}',
-                content_type="application/json",
-                headers=(("internal-status", "404"),),
-            )
-
-        if old_user.password != request_proto.password:
-            logging.error(f"Invalid password for user {old_user.email}")
-            return users_db_accessor_pb2.UpdateUserResponse(
-                message=f"Invalid password for user {old_user.email}", headers=(("internal-status", "401"),)
-            )
-
-        user = User.from_proto(request_proto.user)
-
-        # Fill empty fields in user with old_user fields
-        user.username = user.username or old_user.username
-        user.language = user.language or old_user.language
-        user.country = user.country or old_user.country
-        user.categories = user.categories or old_user.categories
-        user.notification_channel = user.notification_channel or old_user.notification_channel
-        user.telegram_user_id = user.telegram_user_id or old_user.telegram_user_id
-
-        await users_db_accessor.update_user_by_email(email=old_user.email, user=old_user)
-        logging.info(f"Updated user with email {old_user.email}")
-
-        return users_db_accessor_pb2.UpdateUserResponse(
-            bool=True, message="User updated", headers=(("internal-status", "200"),)
-        )
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        await users_db_accessor.update_user_by_id(user_id=user.user_id, user=user)
+        logger.info(f"Updated user with id {user.user_id}")
+        return {"success": True}, HTTPStatus.OK
     except Exception as e:
-        logging.error(f"Error updating user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error updating user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@app.method(name="DeleteUser")
-async def DeleteUser(request):
+@app.route("/UpdateUserByEmail", methods=["PUT"])
+async def UpdateUserByEmail():
     try:
-        logging.info("Deleting user")
-        request_proto = users_db_accessor_pb2.ByIdRequest()
-        request_proto.ParseFromString(request.data)
-        user = await users_db_accessor.get_user_by_id(request_proto.user_id)
+        logger.info("Updating user by email")
+
+        new_user = request.json["user"]
+        old_password = request.json["password"]
+        old_email = request.json["email"]
+        old_user = await users_db_accessor.get_user_by_email(old_email)
+        if not old_user:
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        if old_user.password != old_password:
+            logger.error(f"Invalid password for user {old_user.email}")
+            return {
+                "error": f"Invalid password for user {old_user.email}"
+            }, HTTPStatus.UNAUTHORIZED
+        new_user = User.from_dict(new_user)
+        new_user = merge_user_data(new_user, old_user)
+        await users_db_accessor.update_user_by_email(email=old_email, user=new_user)
+        logger.info(f"Updated user with email {old_user.email}")
+        return {"success": True}, HTTPStatus.OK
+    except Exception as e:
+        logger.error(f"Error updating user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def merge_user_data(new_user: User, old_user: User):
+    """
+    Merge user data from new_user and old_user, permitting client to update only the fields they want to change.
+    """
+    for field in [
+        "email",
+        "username",
+        "language",
+        "country",
+        "categories",
+        "notification_channel",
+        "telegram_user_id",
+    ]:
+        setattr(new_user, field, getattr(new_user, field) or getattr(old_user, field))
+    new_user.created_at = old_user.created_at
+    new_user.updated_at = new_user.updated_at
+    return new_user
+
+
+@app.route("/DeleteUser", methods=["DELETE"])
+async def DeleteUser():
+    try:
+        logger.info("Deleting user")
+        user_id = request.args.get("user_id")
+        user = await users_db_accessor.get_user_by_id(user_id)
         if not user:
-            logging.error("User not found")
-            return InvokeMethodResponse(
-                data=b'{"error": "User not found"}',
-                content_type="application/json",
-                headers=(("internal-status", "404"),),
-            )
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
         await users_db_accessor.delete_user_by_id(user_id=user.user_id)
-        logging.info(f"Deleted user with id {user.user_id}")
-        return users_db_accessor_pb2.DeleteUserResponse(
-            bool=True, message="User deleted", headers=(("internal-status", "200"),)
-        )
+        logger.info(f"Deleted user with id {user.user_id}")
+        return {"success": True}, HTTPStatus.OK
     except Exception as e:
-        logging.error(f"Error deleting user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error deleting user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@app.method(name="DeleteUserByEmail")
-async def DeleteUserByEmail(request):
+@app.route("/DeleteUserByEmail", methods=["DELETE"])
+async def DeleteUserByEmail():
     try:
-        logging.info("Deleting user by email")
-        request_proto = users_db_accessor_pb2.ByEmailRequest()
-        request_proto.ParseFromString(request.data)
-        user = await users_db_accessor.get_user_by_email(request_proto.email)
+        logger.info("Deleting user by email")
+        email = request.args.get("email")
+        password = request.args.get("password")
+        user = await users_db_accessor.get_user_by_email(email)
         if not user:
-            logging.error("User not found")
-            return InvokeMethodResponse(
-                data=b'{"error": "User not found"}',
-                content_type="application/json",
-                headers=(("internal-status", "404"),),
-            )
-        if user.password != request_proto.password:
-            logging.error(f"Invalid password for user {user.email}")
-            return users_db_accessor_pb2.DeleteUserResponse(
-                message=f"Invalid password for user {user.email}", headers=(("internal-status", "401"),)
-            )
+            logger.error("User not found")
+            return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        if user.password != password:
+            logger.error(f"Invalid password for user {user.email}")
+            return {
+                "error": f"Invalid password for user {user.email}"
+            }, HTTPStatus.UNAUTHORIZED
         await users_db_accessor.delete_user_by_email(email=user.email)
-        logging.info(f"Deleted user with email {user.email}")
-        return users_db_accessor_pb2.DeleteUserResponse(
-            bool=True, message="User deleted", headers=(("internal-status", "200"),)
-        )
+        logger.info(f"Deleted user with email {user.email}")
+        return {"success": True}, HTTPStatus.OK
     except Exception as e:
-        logging.error(f"Error deleting user: {str(e)}")
-        return InvokeMethodResponse(
-            data=b'{"error": "Internal error"}',
-            content_type="application/json",
-            headers=(("internal-status", "500"),),
-        )
+        logger.error(f"Error deleting user: {str(e)}")
+        return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logging.info("Starting server...")
-    app.run(50052)
-    logging.info("Started server")
+    logger.info("Starting server...")
+    app.run(port=50057)
+    logger.info("Exiting server...")

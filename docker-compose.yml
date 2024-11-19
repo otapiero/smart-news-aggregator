@@ -1,5 +1,33 @@
 
 services:
+  users_manager:
+    build:
+      context: .
+      dockerfile: UsersManager/Dockerfile
+    ports:
+      - "50050:50050"
+    depends_on:
+      - redis
+      - placement
+      - users_db_accessor
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3500
+        - DAPR_GRPC_PORT=50000
+
+  dapr_sidecar_users_manager:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "users_manager",
+               "--app-port", "50050",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3500",
+               "--dapr-grpc-port", "50000"]
+    depends_on:
+      - users_manager
+    network_mode: "service:users_manager"
+
   newsapi_accessor:
     build:
       context: .
@@ -13,7 +41,7 @@ services:
     networks:
         - dapr-news-aggregator-network
     environment:
-        - DAPR_HTTP_PORT=3500
+        - DAPR_HTTP_PORT=3501
         - DAPR_GRPC_PORT=50001
 
   dapr_sidecar_newsapi_accessor:
@@ -22,7 +50,7 @@ services:
                "--app-id", "newsapi_accessor",
                "--app-port", "50051",
                "--app-protocol", "grpc",
-               "--dapr-http-port", "3500",
+               "--dapr-http-port", "3501",
                "--dapr-grpc-port", "50001"]
 
     depends_on:
@@ -34,17 +62,16 @@ services:
     build:
       context: .
       dockerfile: UsersDBAccessor/Dockerfile
-    ports:
-      - "50052:50052"
     depends_on:
       - redis
       - placement
       - postgres_users_db
+    ports:
+      - "50057:50057"
     networks:
         - dapr-news-aggregator-network
-    environment:
-        - DAPR_HTTP_PORT=3501
-        - DAPR_GRPC_PORT=50002
+
+
 
   dapr_sidecar_users_db_accessor:
     image: daprio/daprd:edge
@@ -56,9 +83,9 @@ services:
         window: 120s
     command: [ "./daprd",
                "--app-id", "users_db_accessor",
-               "--app-port", "50052",
-               "--app-protocol", "grpc",
-               "--dapr-http-port", "3501",
+               "--app-port", "50057",
+               "--app-protocol", "http",
+               "--dapr-http-port", "3502",
                "--dapr-grpc-port", "50002"]
     depends_on:
       - users_db_accessor

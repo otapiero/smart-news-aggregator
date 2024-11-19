@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY UsersDBAccessor/ .
 
-EXPOSE 50052
+EXPOSE 50057
 
 CMD ["python", "server.py"]
