@@ -108,6 +108,11 @@ async def UpdateUserByEmail():
         if not old_user:
             logger.error("User not found")
             return {"error": "User not found"}, HTTPStatus.NOT_FOUND
+        if not old_user.is_active:
+            logger.error(f"User {old_user.email} is not active")
+            return {
+                "error": f"User {old_user.email} is not active"
+            }, HTTPStatus.FORBIDDEN
         if old_user.password != old_password:
             logger.error(f"Invalid password for user {old_user.email}")
             return {
@@ -130,6 +135,7 @@ def merge_user_data(new_user: User, old_user: User):
     for field in [
         "email",
         "username",
+        "password",
         "language",
         "country",
         "categories",
@@ -137,6 +143,8 @@ def merge_user_data(new_user: User, old_user: User):
         "telegram_user_id",
     ]:
         setattr(new_user, field, getattr(new_user, field) or getattr(old_user, field))
+    new_user.is_active = old_user.is_active
+    new_user.user_id = old_user.user_id
     new_user.created_at = old_user.created_at
     new_user.updated_at = new_user.updated_at
     return new_user
