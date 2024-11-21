@@ -13,9 +13,13 @@ load_dotenv()
 app = App()
 news_api_connector = NewsApiConnector(api_key=os.getenv("NEWS_API_AI_API_KEY"))
 
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 @app.method(name="get_news")
-async def get_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
+def get_news(request):
     try:
         request_data = request.data.decode("utf-8")
         request_json = json.loads(request_data)
@@ -25,7 +29,7 @@ async def get_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
         logging.info(
             f"Getting news for language: {language}, country: {country}, category: {category}"
         )
-        news = await news_api_connector.get_news(
+        news = news_api_connector.get_news(
             language=language, country=country, category=category
         )
         response = json.dumps({"status": "success", "data": news}).encode("utf-8")
@@ -59,7 +63,7 @@ async def get_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
 
 
 @app.method(name="get_news_by_topic")
-async def get_news_by_topic(request: InvokeMethodRequest) -> InvokeMethodResponse:
+def get_news_by_topic(request):
     try:
         request_json = json.loads(request.data.decode("utf-8"))
         topic = request_json.get("topic")
@@ -68,7 +72,7 @@ async def get_news_by_topic(request: InvokeMethodRequest) -> InvokeMethodRespons
         logging.info(
             f"Getting news for topic: {topic}, language: {language}, country: {country}"
         )
-        news = await news_api_connector.get_news_by_topic(
+        news = news_api_connector.get_news_by_topic(
             topic=topic, language=language, country=country
         )
         response = json.dumps({"status": "success", "data": news}).encode("utf-8")
@@ -102,8 +106,9 @@ async def get_news_by_topic(request: InvokeMethodRequest) -> InvokeMethodRespons
 
 
 @app.method(name="get_news_by_categories")
-async def get_news_by_categories(request: InvokeMethodRequest) -> InvokeMethodResponse:
+def get_news_by_categories(request):
     try:
+        logging.info("Getting news for categories")
         request_json = json.loads(request.data.decode("utf-8"))
         categories = request_json.get("categories", [])
         language = request_json.get("language", "english")
@@ -111,7 +116,7 @@ async def get_news_by_categories(request: InvokeMethodRequest) -> InvokeMethodRe
         logging.info(
             f"Getting news for categories: {categories}, language: {language}, country: {country}"
         )
-        news = await news_api_connector.get_news_by_categories(
+        news = news_api_connector.get_news_by_categories(
             categories=categories, language=language, country=country
         )
         response = json.dumps({"status": "success", "data": news}).encode("utf-8")
@@ -146,7 +151,7 @@ async def get_news_by_categories(request: InvokeMethodRequest) -> InvokeMethodRe
 
 
 @app.method(name="get_available_options")
-async def get_available_options() -> InvokeMethodResponse:
+def get_available_options(request):
     try:
         logging.info("Getting available options")
         options = NewsApiConfig.get_available_options()
@@ -182,7 +187,7 @@ async def get_available_options() -> InvokeMethodResponse:
 
 
 @app.method(name="health")
-async def health() -> InvokeMethodResponse:
+def health():
     return InvokeMethodResponse(
         data=json.dumps({"status": "ok"}).encode("utf-8"),
         content_type="application/json",
@@ -191,9 +196,7 @@ async def health() -> InvokeMethodResponse:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+
     logging.info("Starting NewsApiAccessor app...")
     try:
         app.run(50051)

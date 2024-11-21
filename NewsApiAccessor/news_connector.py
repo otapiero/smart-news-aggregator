@@ -5,8 +5,6 @@ import dotenv
 from news_api_config import NewsApiConfig
 import logging
 import time
-import asyncio
-
 from eventregistry import EventRegistry, QueryArticlesIter
 
 
@@ -15,7 +13,7 @@ class NewsApiConnector:
         self.api_key = api_key
         self.event_registry = EventRegistry(apiKey=self.api_key)
 
-    async def _get_date_range(self):
+    def _get_date_range(self):
         """Helper method to get date range for the last 7 days."""
         end_time = time.time()
         start_time = end_time - 86400  # 1 day in seconds
@@ -23,12 +21,12 @@ class NewsApiConnector:
         start_date = time.strftime("%Y-%m-%d", time.localtime(start_time))
         return start_date, end_date
 
-    async def get_news(
+    def get_news(
         self, country: str = "us", language: str = "english", category: str = "politics"
     ) -> Dict:
         try:
             logging.info("Getting news")
-            start_date, end_date = await self._get_date_range()
+            start_date, end_date = self._get_date_range()
             country_uri = NewsApiConfig.get_country_uri(country)
             category_uri = NewsApiConfig.get_category_uri(category)
             language_code = NewsApiConfig.get_language_code(language)
@@ -59,12 +57,12 @@ class NewsApiConnector:
             logging.error(f"An error occurred: {str(e)}")
             return {"error": "Internal error"}
 
-    async def get_news_by_topic(
+    def get_news_by_topic(
         self, topic: str, country: str = "us", language: str = "english"
     ) -> Dict:
         try:
             logging.info("Getting news by topic")
-            start_date, end_date = await self._get_date_range()
+            start_date, end_date = self._get_date_range()
             country_uri = NewsApiConfig.get_country_uri(country)
             language_code = NewsApiConfig.get_language_code(language)
 
@@ -100,7 +98,7 @@ class NewsApiConnector:
             logging.error(f"An error occurred: {str(e)}")
             return {"error": "Internal error"}
 
-    async def get_news_by_categories(
+    def get_news_by_categories(
         self, categories: List[str], country: str = "us", language: str = "english"
     ) -> Union[Dict, List[Dict]]:
         try:
@@ -113,7 +111,7 @@ class NewsApiConnector:
                     continue
 
                 category_news = []
-                articles = await self.get_news(
+                articles = self.get_news(
                     country=country, language=language, category=category
                 )
 
@@ -139,11 +137,11 @@ if __name__ == "__main__":
 
     news_api_key = os.getenv("NEWS_API_AI_API_KEY")
     news_api_connector = NewsApiConnector(api_key=news_api_key)
-    news = asyncio.run(news_api_connector.get_news())
+    news = news_api_connector.get_news()
     print(news)
-    news_by_topic = asyncio.run(news_api_connector.get_news_by_topic(topic="elections"))
+    news_by_topic = news_api_connector.get_news_by_topic(topic="elections")
     print(news_by_topic)
-    news_by_categories = asyncio.run(
-        news_api_connector.get_news_by_categories(categories=["politics", "business"])
+    news_by_categories = news_api_connector.get_news_by_categories(
+        categories=["politics", "business"]
     )
     print(news_by_categories)
