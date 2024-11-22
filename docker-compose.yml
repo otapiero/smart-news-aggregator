@@ -1,5 +1,63 @@
 
 services:
+  llm_summarization_accessor:
+    build:
+      context: .
+      dockerfile: LLMSummarizationAPIAccessor/Dockerfile
+    ports:
+      - "50052:50052"
+    depends_on:
+      - redis
+      - placement
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3505
+        - DAPR_GRPC_PORT=50005
+
+  dapr_sidecar_llm_summarization_accessor:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "llm_summarization_accessor",
+               "--app-port", "50052",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3505",
+               "--dapr-grpc-port", "50005"]
+    depends_on:
+      - llm_summarization_accessor
+    network_mode: "service:llm_summarization_accessor"
+
+
+  news_engine:
+    build:
+      context: .
+      dockerfile: NewsEngine/Dockerfile
+    ports:
+      - "5001:5001"
+    depends_on:
+      - placement
+      - redis
+      - newsapi_accessor
+    networks:
+      - dapr-news-aggregator-network
+    environment:
+      - DAPR_HTTP_PORT=3504
+      - DAPR_GRPC_PORT=50004
+
+  dapr_sidecar_news_engine:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "news_engine",
+               "--app-port", "5001",
+               "--app-protocol", "http",
+                "--dapr-http-port", "3504",
+               "--dapr-grpc-port", "50004"]
+    depends_on:
+      - news_engine
+    network_mode: "service:news_engine"
+
+
+
   news_manager:
     build:
       context: .
@@ -21,7 +79,7 @@ services:
     command: [ "./daprd",
                "--app-id", "news_manager",
                "--app-port", "5000",
-               "--app-protocol", "grpc",
+               "--app-protocol", "http",
                "--dapr-http-port", "3503",
                "--dapr-grpc-port", "50003"]
     depends_on:
