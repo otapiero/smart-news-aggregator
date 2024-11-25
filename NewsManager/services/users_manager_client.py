@@ -18,7 +18,7 @@ class AsyncHTTPUsersManagerClient:
             data = {"email": email, "password": password}
             response = await self.client.invoke_method_async(
                 app_id=self.app_id,
-                method_name="get_user_preferences",
+                method_name="GetUserPreferencesByEmailAddress",
                 data=json.dumps(data).encode("utf-8"),
                 content_type="application/grpc",
             )

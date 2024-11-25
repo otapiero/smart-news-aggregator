@@ -192,5 +192,5 @@ async def DeleteUserByEmail():
 
 if __name__ == "__main__":
     logger.info("Starting server...")
-    app.run(port=50057)
+    app.run(port=5002)
     logger.info("Exiting server...")

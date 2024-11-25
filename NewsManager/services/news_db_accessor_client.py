@@ -25,3 +25,23 @@ class AsyncHTTPNewsDBAccessorClient:
         except Exception as e:
             self.logger.error(f"Error checking cached news: {e}")
             return None
+
+    async def update_news ( self, user_preferences, fresh_news):
+        try:
+            self.logger.info("Updating cache with fresh news...")
+            data = {"preferences": user_preferences, "news": fresh_news}
+            response = await self.client.invoke_method_async(
+                app_id=self.app_id,
+                method_name="update-news",
+                data=json.dumps(data).encode("utf-8"),
+                content_type="application/json",
+            )
+            if response.status_code == 200:
+                self.logger.info("Cache updated successfully")
+                return True
+            else:
+                self.logger.error(f"Failed to update cache: {response.text()}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error updating cache: {e}")
+            return False

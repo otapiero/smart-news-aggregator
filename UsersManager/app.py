@@ -33,7 +33,7 @@ def create_error_response(
 
 
 @app.method(name="CreateUser")
-async def create_user(request):
+def create_user(request):
     try:
         user_data = json.loads(request.data)
         user_dto = UserDTO(**user_data)
@@ -49,7 +49,7 @@ async def create_user(request):
 
 
 @app.method(name="GetUserPreferencesByEmailAddress")
-async def get_user_preferences(request):
+def get_user_preferences(request):
     try:
         request_data = json.loads(request.data)
         email = request_data.get("email")
@@ -68,7 +68,7 @@ async def get_user_preferences(request):
 
 
 @app.method(name="UpdateUserByEmail")
-async def update_user_by_email(request):
+def update_user_by_email(request):
     try:
         request_data = json.loads(request.data)
         user_data = request_data.get("user")
@@ -91,7 +91,7 @@ async def update_user_by_email(request):
 
 
 @app.method(name="DeleteUserByEmail")
-async def delete_user_by_email(request):
+def delete_user_by_email(request):
     try:
         request_data = json.loads(request.data)
         email = request_data.get("email")

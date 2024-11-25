@@ -5,3 +5,4 @@ langchain
 langchain_community
 dapr==1.12.1
 dapr-ext-grpc==1.12.0
+python-dotenv

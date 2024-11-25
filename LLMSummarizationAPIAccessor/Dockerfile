@@ -11,6 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY LLMSummarizationAPIAccessor/ .
 
-EXPOSE 50052
+EXPOSE 50054
 
 CMD ["python", "service.py"]
