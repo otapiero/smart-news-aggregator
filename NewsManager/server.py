@@ -10,9 +10,7 @@ app = Flask(__name__)
 news_service = NewsService()
 
 
-@app.route(
-    "/get-news", methods=["POST"]
-)
+@app.route("/get-news", methods=["POST"])
 async def get_news():
     logger.info("Getting news...")
     try:

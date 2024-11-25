@@ -118,7 +118,7 @@ def handle_error(
 if __name__ == "__main__":
     logger.info("Starting LLM summarization service...")
     try:
-        app.run(50052)
+        app.run(50054)
     except KeyboardInterrupt:
         logging.info("Shutting down gracefully...")
     except Exception as e:

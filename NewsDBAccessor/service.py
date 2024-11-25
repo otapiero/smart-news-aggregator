@@ -83,7 +83,7 @@ def update_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
 def main():
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting News DB Accessor service...")
-    app.run(50057)
+    app.run(50058)
 
 
 if __name__ == "__main__":

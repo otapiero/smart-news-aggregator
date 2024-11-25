@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     logging.info("Starting NewsApiAccessor app...")
     try:
-        app.run(50051)
+        app.run(50052)
     except KeyboardInterrupt:
         logging.info("Shutting down gracefully...")
     except Exception as e:

@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY NewsDBAccessor/ .
 
-EXPOSE 50057
+EXPOSE 50058
 
 CMD ["python", "service.py"]

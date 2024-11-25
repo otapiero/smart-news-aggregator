@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class NewsDBAccessor:
-    def __init__(self, redis_host="redis", redis_port=6379,max_articles=10):
+    def __init__(self, redis_host="redis", redis_port=6379, max_articles=10):
         self.max_articles = max_articles
         self.client = redis.StrictRedis(
             host=redis_host, port=redis_port, decode_responses=True
