@@ -13,7 +13,7 @@ news_api_client = AsyncGRPCNewsApiClient("newsapi_accessor")
 llm_api_client = AsyncGRPCLLMApiClient("llm_summarization_accessor")
 
 
-@app.route("/get-fresh-news", methods=["POST"])
+@app.route("/get-fresh-news", methods=["GET"])
 async def get_fresh_news():
     try:
         logger.info("Received request for fresh news...")
@@ -33,7 +33,7 @@ async def get_fresh_news():
 
         # Step 2: Summarize news using LLM API Accessor
         summarized_news = await llm_api_client.summarize(raw_news)
-
+        logger.info(f"len of summarized_news: {len(summarized_news)}")
         logger.info("Summarized news successfully. Returning to News Manager.")
         return jsonify({"status": "success", "data": summarized_news}), 200
 

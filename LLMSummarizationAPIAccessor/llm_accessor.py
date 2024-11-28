@@ -75,8 +75,10 @@ class LLMApiAccessor:
                 response_mime_type="application/json", response_schema=list[Article]
             ),
         )
-        self.logger.info(f"Result: {result.text}")
+        self.logger.info(f"Received response.")
         summaries = self._split_summaries(result.text)
+        self.logger.info(f"Number of summaries: {len(summaries)}")
+        self.logger.info(f"type of summaries: {type(summaries)}")
         remaining_requests = self.rate_limiter.remaining_requests()
         self.logger.info(
             f"Remaining requests: per minute: {remaining_requests['minute_remaining']}, per day: {remaining_requests['daily_remaining']}"
@@ -102,7 +104,7 @@ class LLMApiAccessor:
         """
         try:
             summaries = json.loads(response_text)
-            if not isinstance(summaries, list):
+            if not isinstance(summaries, (list, dict)):
                 raise ValueError("Response is not a list of summaries as expected.")
             return summaries
         except json.JSONDecodeError as e:

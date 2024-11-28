@@ -51,6 +51,11 @@ class UserManagerEngine:
                     if "User id already exists" in error_message:
                         logger.info("User ID conflict, generating a new one...")
                         continue  # Generate a new user_id and retry
+                    if "user email already exists" in error_message:
+                        return {
+                            "error": "User email already exists",
+                            "status_code": HTTPStatus.BAD_REQUEST,
+                        }
                     return {
                         "error": error_message,
                         "status_code": HTTPStatus.BAD_REQUEST,
