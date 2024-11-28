@@ -19,8 +19,15 @@ class AsyncHTTPNewsEngineClient:
                 content_type="application/json",
             )
             if response.status_code == 200:
-                news = json.loads(response.data.decode("utf-8"))
-                return news.get("data", [])
+                data_response = json.loads(response.data.decode("utf-8"))
+                news = data_response.get("data", [])
+                if data_response.get("status") == "success":
+                    self.logger.info("Successfully fetched news from News Engine")
+                    return news
+                else:
+                    self.logger.error(
+                        f"Error fetching news from News Engine: {data_response.get('message')}"
+                    )
             return []
         except Exception as e:
             self.logger.error(f"Error fetching news from News Engine: {e}")
