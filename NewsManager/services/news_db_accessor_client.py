@@ -11,11 +11,16 @@ class AsyncHTTPNewsDBAccessorClient:
 
     async def get_cached_news(self, preferences):
         try:
+            data = {
+                "language": preferences.get("language"),
+                "country": preferences.get("country"),
+                "categories": preferences.get("categories"),
+            }
             self.logger.info("Checking cache for news...")
             response = await self.client.invoke_method_async(
                 app_id=self.app_id,
-                method_name="get-cached-news",
-                data=json.dumps(preferences).encode("utf-8"),
+                method_name="get_news",
+                data=json.dumps(data).encode("utf-8"),
                 content_type="application/json",
             )
             if response.status_code == 200:
@@ -26,13 +31,18 @@ class AsyncHTTPNewsDBAccessorClient:
             self.logger.error(f"Error checking cached news: {e}")
             return None
 
-    async def update_news ( self, user_preferences, fresh_news):
+    async def update_news(self, language, country, category, news):
         try:
             self.logger.info("Updating cache with fresh news...")
-            data = {"preferences": user_preferences, "news": fresh_news}
+            data = {
+                "language": language,
+                "country": country,
+                "category": category,
+                "articles": news,
+            }
             response = await self.client.invoke_method_async(
                 app_id=self.app_id,
-                method_name="update-news",
+                method_name="update_news",
                 data=json.dumps(data).encode("utf-8"),
                 content_type="application/json",
             )

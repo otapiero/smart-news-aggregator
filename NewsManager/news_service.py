@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Dict, List
 
 from services.users_manager_client import AsyncHTTPUsersManagerClient
 from services.news_db_accessor_client import AsyncHTTPNewsDBAccessorClient
@@ -35,43 +36,103 @@ class NewsService:
 
             # Step 2: Check cached news in News DB Accessor
             cached_news = await self.news_db_client.get_cached_news(user_preferences)
-            logging.info(f"cached_news: {cached_news}")
-            # check the time of the last update
-            # if it is more than 60 minutes, then update the cache
-            if cached_news:
-                last_update = cached_news.get("last_update")
-                if last_update:
-                    last_update = datetime.strptime(last_update, "%Y-%m-%d %H:%M:%S")
-                    if (datetime.now() - last_update).total_seconds() <= 3600: # send cached news
-                        await self.email_client.send_news(email, cached_news["news"])
-                        return {"status": "success", "message": "Cached news sent"}
+            self.logger.info(f"gotten cached news length: {len(cached_news.values())}")
+            if any(cached_news.values()):
+                filtered_cached_news = self._filter_old_articles(
+                    cached_news, max_age_minutes=Config.CACHED_NEWS_MAX_AGE_MINUTES
+                )
+                if len(filtered_cached_news.values()) > Config.NUM_ARTICLES_TO_SEND:
+                    news_to_send = await self._choose_articles_to_send(
+                        filtered_cached_news, num_articles=Config.NUM_ARTICLES_TO_SEND
+                    )
+                    self.logger.info(f"Sending cached news: {news_to_send}")
+                    await self.email_client.send_news(email, news_to_send)
+                    return {"status": "success", "message": "Cached news sent"}
 
             # Step 3: Fetch fresh news from News Engine
             fresh_news = await self.news_engine_client.get_fresh_news(user_preferences)
-            if not fresh_news: # if failed to fetch news send old news
-                logging.info("Failed to fetch news")
+            if not fresh_news:  # if failed to fetch news send old news
+                self.logger.info("Failed to fetch news")
+                return await self._handle_fallback(cached_news, email)
 
-                if cached_news:
-                    logging.info("Sending cached news")
-                    await self.email_client.send_news(email, cached_news["news"])
-                    logging.info("Cached news sent")
-                    return {"status": "success", "message": "Cached news sent"}
-                return {"status": "error", "message": "Failed to fetch news"}
+            # chose 5 articles to send
+            news_to_send = await self._choose_articles_to_send(
+                fresh_news, num_articles=Config.NUM_ARTICLES_TO_SEND
+            )
+            await self._update_news_cache(user_preferences, fresh_news)
 
-            # chose 5 articles (from all categories) to send
-            news_to_send = []
-            for category in fresh_news:
-                news_to_send.extend(category["articles"][0])
-            fresh_news = news_to_send[:5]
-            # Step 4: Update the cache in News DB Accessor
-            await self.news_db_client.update_news(user_preferences, fresh_news)
-
-
-
-            # Step 4: Send the news via Email API Accessor
-            await self.email_client.send_news(email, fresh_news)
+            await self.email_client.send_news(email, news_to_send)
             return {"status": "success", "message": "Fresh news sent"}
 
         except Exception as e:
             self.logger.error(f"Error in handle_get_news: {e}")
             return {"status": "error", "message": "Internal service error"}
+
+    async def _handle_fallback(self, cached_news: dict, email: str) -> dict:
+        if cached_news:
+            self.logger.info("Sending cached news due to fresh news fetch failure")
+            cached_news = self._filter_old_articles(
+                cached_news, max_age_minutes=60 * 24 * 365
+            )
+            news_to_send = await self._choose_articles_to_send(
+                cached_news, num_articles=Config.NUM_ARTICLES_TO_SEND
+            )
+            await self.email_client.send_news(email, news_to_send)
+            return {"status": "success", "message": "Cached news sent"}
+        return {"status": "error", "message": "Failed to fetch news"}
+
+    async def _choose_articles_to_send(
+        self, news: Dict[str, List[dict]], num_articles: int = 5
+    ) -> List[dict]:
+        """
+        Choose articles to send from fresh_news, prioritizing articles with URLs and images.
+        """
+        news_to_send = []
+        categories = list(news.keys())
+        i = 0
+        while len(news_to_send) < num_articles:
+            articles_list = news[categories[i % len(categories)]]
+            if articles_list:
+                articles_list.sort(key=self._article_priority, reverse=True)
+                news_to_send.append(articles_list.pop(0))
+            i += 1
+        return news_to_send
+
+    def _article_priority(self, article: dict) -> int:
+        """
+        Return priority score based on the presence of URL and image.
+        """
+        return bool(article.get("url")) + bool(article.get("image"))
+
+    def _filter_old_articles(
+        self, cached_news: dict, max_age_minutes: int = 60
+    ) -> dict:
+        """
+        Filters out articles older than max_age_minutes from each category in cached_news.
+        """
+        now = datetime.now()
+        max_age = timedelta(minutes=max_age_minutes)
+        filtered_news = {
+            category: [
+                article["article"]
+                for article in articles
+                if now - datetime.fromisoformat(article["timestamp"].replace("Z", ""))
+                <= max_age
+            ]
+            for category, articles in cached_news.items()
+        }
+        return filtered_news
+
+    async def _update_news_cache(self, user_preferences: dict, fresh_news: dict):
+        """
+        Update the news cache in the News DB Accessor.
+        """
+        for category, articles in fresh_news.items():
+            if articles:
+                self.logger.info(f"Updating news for category: {category}")
+                await self.news_db_client.update_news(
+                    user_preferences["language"],
+                    user_preferences["country"],
+                    category,
+                    articles,
+                )
