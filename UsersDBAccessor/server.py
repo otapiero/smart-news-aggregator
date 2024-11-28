@@ -72,7 +72,17 @@ async def GetUserPreferencesByEmailAddress():
             logger.error(f"User {user.email} is not active")
             return {"error": f"User {user.email} is not active"}, HTTPStatus.FORBIDDEN
         logger.info(f"Getting user preferences with email {email}")
-        return user.to_dict(), HTTPStatus.OK
+        user_preferences = {
+            "email": user.email,
+            "username": user.username,
+            "password": user.password,
+            "language": user.language,
+            "country": user.country,
+            "categories": user.categories,
+            "notification_channel": user.notification_channel,
+            "telegram_user_id": user.telegram_user_id,
+        }
+        return user_preferences, HTTPStatus.OK
     except Exception as e:
         logger.error(f"Error getting user preferences: {str(e)}")
         return {"error": "Internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR

@@ -120,6 +120,10 @@ def get_news_by_categories(request):
             categories=categories, language=language, country=country
         )
         response = json.dumps({"status": "success", "data": news}).encode("utf-8")
+        logging.info(
+            f"got {len([article for category in news for article in category['articles']])} articles"
+        )
+
         return InvokeMethodResponse(
             data=response,
             headers=(("internal-status", "200"),),

@@ -98,6 +98,7 @@ def update_articles_with_summary(original_articles, summarized_data):
 
 def create_success_response(data: Dict) -> InvokeMethodResponse:
     """Create a success response."""
+    logger.info("Creating success response...")
     response = json.dumps({"status": "success", "data": data}).encode("utf-8")
     return InvokeMethodResponse(data=response, content_type="application/json")
 

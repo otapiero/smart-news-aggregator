@@ -72,14 +72,23 @@ class AsyncGRPCNewsApiClient:
                     # Extract required fields
                     article_info = {
                         "title": article.get("title", "No Title"),
-                        "body": article.get("body", "No Body"),
-                        "image": article.get("image", "No Image URL"),
-                        "url": article.get("url", "No URL"),
-                        "dateTimePub": article.get("dateTimePub", "No Date"),
+                        "body": article.get("body", ""),
+                        "image": article.get("image", ""),
+                        "url": article.get("url", ""),
+                        "dateTimePub": article.get("dateTimePub", ""),
                         "category": category,
                     }
                     article = NewsArticle.from_dict(article_info)
                     articles.append(article)
+                # Filter articles with non-empty body
+                articles = [article for article in articles if article.body]
+
+                # Sort articles based on the presence of 'url' and 'image'
+                # Articles with both 'url' and 'image' come first
+                articles.sort(key=lambda article: bool(article.url) and bool(article.image), reverse=True)
+
+                # Take the first 10 articles
+                articles = articles[:10]
 
                 # Store articles in the appropriate category list
                 if category not in categorized_articles:
@@ -88,5 +97,5 @@ class AsyncGRPCNewsApiClient:
 
             return categorized_articles
         except (json.JSONDecodeError, AttributeError, TypeError) as e:
-            print(f"Error processing data: {e}")
+            logger.error(f"Error extracting articles by category: {e}")
             return {}

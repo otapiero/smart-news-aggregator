@@ -1,4 +1,5 @@
 from dapr.ext.grpc import App, InvokeMethodResponse, InvokeMethodRequest
+
 from news_db_accessor import NewsDBAccessor
 import logging
 import json
@@ -17,14 +18,16 @@ def get_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
         request_json = json.loads(request_data)
         language = request_json.get("language", "english")
         country = request_json.get("country", "us")
-        category = request_json.get("category", "")
-
+        categories = request_json.get("categories", [])
         logger.info(
-            f"Fetching news for category: {category}, language: {language}, country: {country}"
+            f"Fetching news for language: {language}, country: {country}, categories: {categories}"
         )
-        news = news_db_accessor.get_news(
-            category=category, language=language, country=country
-        )
+        news = {}
+        for category in categories:
+            news[category] = get_news_by_category(category, language, country)
+            logger.info(
+                f"Fetched {len(news[category])} articles for category: {category}"
+            )
 
         response_data = {"status": "success", "data": news}
 
@@ -39,6 +42,20 @@ def get_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
         )
 
 
+def get_news_by_category(category, language, country):
+    try:
+        logger.info(
+            f"Fetching news for category: {category}, language: {language}, country: {country}"
+        )
+        news = news_db_accessor.get_news(
+            category=category, language=language, country=country
+        )
+        return news
+    except Exception as e:
+        logger.error(f"Error fetching news: {e}")
+        return []
+
+
 @app.method(name="update_news")
 def update_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
     try:
@@ -48,18 +65,7 @@ def update_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
         country = request_json["country"]
         category = request_json["category"]
         new_articles = request_json["articles"]
-
-        logger.info(
-            f"Updating news for category: {category}, language: {language}, country: {country}"
-        )
-
-        news_db_accessor.update_news(
-            category=category,
-            language=language,
-            country=country,
-            new_articles=new_articles,
-        )
-
+        update_news_by_category(category, language, country, new_articles)
         response_data = {"status": "success", "message": "News updated successfully."}
         return InvokeMethodResponse(
             json.dumps(response_data).encode("utf-8"), "application/json"
@@ -78,6 +84,21 @@ def update_news(request: InvokeMethodRequest) -> InvokeMethodResponse:
             json.dumps({"status": "error", "message": str(e)}).encode("utf-8"),
             "application/json",
         )
+
+
+def update_news_by_category(category, language, country, news):
+    try:
+        logger.info(
+            f"Updating news for category: {category}, language: {language}, country: {country}"
+        )
+        news_db_accessor.update_news(
+            category=category,
+            language=language,
+            country=country,
+            new_articles=news,
+        )
+    except Exception as e:
+        logger.error(f"Error updating news: {e}")
 
 
 def main():

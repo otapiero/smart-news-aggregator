@@ -47,7 +47,7 @@ class NewsApiConnector:
 
             news_list = []
             for article in query.execQuery(
-                self.event_registry, sortBy="date", maxItems=10
+                self.event_registry, sortBy="date", maxItems=20
             ):
                 news_list.append(article)
 
@@ -88,7 +88,7 @@ class NewsApiConnector:
 
             news_list = []
             for article in query.execQuery(
-                self.event_registry, sortBy="date", maxItems=10
+                self.event_registry, sortBy="date", maxItems=20
             ):
                 news_list.append(article)
 
