@@ -1,15 +1,21 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from dapr.clients import DaprClient
 import logging
 import json
-
+from flask_cors import CORS
 from config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="frontend/build", static_url_path="/")
 dapr_client = DaprClient()
+CORS(app)
+
+
+@app.route("/")
+def serve():
+    return send_from_directory(app.static_folder, "index.html")
 
 
 @app.route("/users", methods=["POST", "GET", "PUT", "DELETE"])
