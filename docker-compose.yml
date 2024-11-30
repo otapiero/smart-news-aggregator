@@ -1,0 +1,359 @@
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - dapr-news-aggregator-network
+
+  backend_for_frontend:
+    build:
+      context: .
+      dockerfile: BFF/Dockerfile
+    ports:
+        - "5003:5003"
+    depends_on:
+      - redis
+      - placement
+      - news_manager
+      - users_manager
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3509
+        - DAPR_GRPC_PORT=50009
+        - RABBITMQ_HOST=rabbitmq
+
+  dapr_sidecar_backend_for_frontend:
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    image: daprio/daprd:edge
+
+    command: [ "./daprd",
+               "--app-id", "backend_for_frontend",
+               "--app-port", "5003",
+               "--app-protocol", "http",
+               "--dapr-http-port", "3509",
+               "--dapr-grpc-port", "50009",
+               "--resources-path", "/dapr/components"]
+    volumes:
+        - ./dapr/components:/dapr/components
+    depends_on:
+      - backend_for_frontend
+      - rabbitmq
+    network_mode: "service:backend_for_frontend"
+
+
+  llm_summarization_accessor:
+    build:
+      context: .
+      dockerfile: LLMSummarizationAPIAccessor/Dockerfile
+    ports:
+      - "50054:50054"
+    depends_on:
+      - redis
+      - placement
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3504
+        - DAPR_GRPC_PORT=50004
+
+  dapr_sidecar_llm_summarization_accessor:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "llm_summarization_accessor",
+               "--app-port", "50054",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3504",
+               "--dapr-grpc-port", "50004"]
+    depends_on:
+      - llm_summarization_accessor
+    network_mode: "service:llm_summarization_accessor"
+
+
+  news_engine:
+    build:
+      context: .
+      dockerfile: NewsEngine/Dockerfile
+    ports:
+      - "5001:5001"
+    depends_on:
+      - placement
+      - redis
+      - newsapi_accessor
+    networks:
+      - dapr-news-aggregator-network
+    environment:
+      - DAPR_HTTP_PORT=3501
+      - DAPR_GRPC_PORT=50001
+
+  dapr_sidecar_news_engine:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "news_engine",
+               "--app-port", "5001",
+               "--app-protocol", "http",
+                "--dapr-http-port", "3501",
+               "--dapr-grpc-port", "50001"]
+    depends_on:
+      - news_engine
+    network_mode: "service:news_engine"
+
+
+
+  news_manager:
+    build:
+      context: .
+      dockerfile: NewsManager/Dockerfile
+    ports:
+      - "50053:50053"
+    depends_on:
+      - placement
+      - redis
+      - users_manager
+      - rabbitmq
+    networks:
+      - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3503
+        - DAPR_GRPC_PORT=50003
+        - RABBITMQ_HOST=rabbitmq
+
+  dapr_sidecar_news_manager:
+    image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    command: [ "./daprd",
+               "--app-id", "news_manager",
+               "--app-port", "50053",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3503",
+               "--dapr-grpc-port", "50003",
+                "--resources-path", "/dapr/components"]
+    volumes:
+        - ./dapr/components:/dapr/components
+    depends_on:
+      - news_manager
+      - rabbitmq
+    network_mode: "service:news_manager"
+
+  users_manager:
+    build:
+      context: .
+      dockerfile: UsersManager/Dockerfile
+    ports:
+      - "50050:50050"
+    depends_on:
+      - redis
+      - placement
+      - users_db_accessor
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3500
+        - DAPR_GRPC_PORT=50000
+
+  dapr_sidecar_users_manager:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "users_manager",
+               "--app-port", "50050",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3500",
+               "--dapr-grpc-port", "50000"]
+    depends_on:
+      - users_manager
+    network_mode: "service:users_manager"
+
+  newsapi_accessor:
+    build:
+      context: .
+      dockerfile: NewsAPIAccessor/Dockerfile
+    ports:
+      - "50052:50052"
+    depends_on:
+      - redis
+      - placement
+
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3502
+        - DAPR_GRPC_PORT=50002
+
+  dapr_sidecar_newsapi_accessor:
+    image: daprio/daprd:edge
+    command: [ "./daprd",
+               "--app-id", "newsapi_accessor",
+               "--app-port", "50052",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3502",
+               "--dapr-grpc-port", "50002"]
+
+    depends_on:
+      - newsapi_accessor
+    network_mode: "service:newsapi_accessor"
+
+
+  users_db_accessor:
+    build:
+      context: .
+      dockerfile: UsersDBAccessor/Dockerfile
+    depends_on:
+      - redis
+      - placement
+      - postgres_users_db
+    ports:
+      - "5002:5002"
+    networks:
+        - dapr-news-aggregator-network
+
+
+
+  dapr_sidecar_users_db_accessor:
+    image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    command: [ "./daprd",
+               "--app-id", "users_db_accessor",
+               "--app-port", "5002",
+               "--app-protocol", "http",
+               "--dapr-http-port", "3507",
+               "--dapr-grpc-port", "50007"]
+    depends_on:
+      - users_db_accessor
+    network_mode: "service:users_db_accessor"
+
+  postgres_users_db:
+    image: "postgres:15-alpine"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres_users_db
+      - POSTGRES_DB_NAME=postgres_users_db
+    ports:
+      - "5432:5432"
+    networks:
+        - dapr-news-aggregator-network
+    volumes:
+        - postgres-data:/var/lib/postgresql/data
+
+  news_db_accessor:
+    build:
+      context: .
+      dockerfile: NewsDBAccessor/Dockerfile
+    depends_on:
+      - redis
+      - placement
+      - news_db
+    ports:
+      - "50058:50058"
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3508
+        - DAPR_GRPC_PORT=50008
+
+  news_db:
+    image: "redis:alpine"
+    command: [ "redis-server", "--requirepass", "mypassword" ]
+    ports:
+      - "6381:6379"
+    networks:
+        - dapr-news-aggregator-network
+    volumes:
+      - redis-data:/data
+
+  dapr_sidecar_news_db_accessor:
+    image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    command: [ "./daprd",
+               "--app-id", "news_db_accessor",
+               "--app-port", "50058",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3508",
+               "--dapr-grpc-port", "50008"]
+    depends_on:
+      - news_db_accessor
+    network_mode: "service:news_db_accessor"
+
+  email_api_accessor:
+    build:
+      context: .
+      dockerfile: EmailAPIAccessor/Dockerfile
+    depends_on:
+      - redis
+      - placement
+    ports:
+      - "50055:50055"
+    networks:
+        - dapr-news-aggregator-network
+    environment:
+        - DAPR_HTTP_PORT=3505
+        - DAPR_GRPC_PORT=50005
+
+  dapr_sidecar_email_api_accessor:
+    image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    command: [ "./daprd",
+               "--app-id", "email_api_accessor",
+               "--app-port", "50055",
+               "--app-protocol", "grpc",
+               "--dapr-http-port", "3505",
+               "--dapr-grpc-port", "50005"]
+    depends_on:
+      - email_api_accessor
+    network_mode: "service:email_api_accessor"
+
+
+  placement:
+    image: "daprio/dapr"
+    command: [ "./placement", "--port", "50006"]
+    ports:
+      - "50006:50006"
+    networks:
+      - dapr-news-aggregator-network
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6380:6379"
+    networks:
+        - dapr-news-aggregator-network
+networks:
+    dapr-news-aggregator-network:
+        driver: bridge
+volumes:
+  redis-data:
+      driver: local
+  postgres-data:
+      driver: local
+
