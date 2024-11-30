@@ -9,11 +9,11 @@ class AsyncHTTPEmailAPIClient:
         self.client = DaprClient()
         self.app = app_id
 
-    async def send_news(self, email, news):
+    def send_news(self, email, news):
         try:
             self.logger.info(f"Sending news to {email}")
             data = {"email": email, "news": news}
-            response = await self.client.invoke_method_async(
+            response = self.client.invoke_method(
                 app_id="email_api_accessor",
                 method_name="send-email",
                 data=json.dumps(data).encode("utf-8"),

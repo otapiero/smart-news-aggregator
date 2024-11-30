@@ -12,11 +12,11 @@ class AsyncHTTPUsersManagerClient:
         self.client = DaprClient()
         self.app_id = app_id
 
-    async def get_user_preferences(self, email: str, password: str) -> Dict[str, str]:
+    def get_user_preferences(self, email: str, password: str) -> Dict[str, str]:
         try:
             self.logger.info(f"Getting preferences for user: {email}")
             data = {"email": email, "password": password}
-            response = await self.client.invoke_method_async(
+            response = self.client.invoke_method(
                 app_id=self.app_id,
                 method_name="GetUserPreferencesByEmailAddress",
                 data=json.dumps(data).encode("utf-8"),

@@ -1,0 +1,24 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: newsqueue
+spec:
+  type: bindings.rabbitmq
+  version: v1
+  metadata:
+  - name: host
+    value: "amqp://rabbitmq:5672"
+  - name: queueName
+    value: "newsqueue"
+  - name: durable
+    value: "true"
+  - name: deleteWhenUnused
+    value: "false"
+  - name: ttlInSeconds
+    value: "5"
+  - name: prefetchCount
+    value: "3"
+  - name: exclusive
+    value: "false"
+  - name: maxPriority
+    value: "5"
