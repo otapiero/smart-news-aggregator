@@ -67,18 +67,16 @@ def manage_users():
         return jsonify({"error": "Internal Server Error"}), 500
 
 
-@app.route("/news", methods=["POST"])
+@app.route("/news", methods=["GET"])
 def get_news():
     """Handles requests to fetch news."""
     try:
         logger.info("Fetching news")
-        response = dapr_client.invoke_method(
-            app_id=Config.NEWS_MANAGER_APP_ID,
-            method_name="get-news",
-            content_type="application/json",
-            data=json.dumps(request.json).encode("utf-8"),
+        response = dapr_client.invoke_binding(
+            binding_name="newsqueue", operation="create", data=json.dumps(request.json)
         )
-        return jsonify(response.json()), response.status_code
+        logger.info("Request sent to the queue")
+        return {"message": "Request to fetch news sent successfully to the queue"}
     except Exception as e:
         logger.error(f"Error fetching news: {e}")
         return jsonify({"error": "Internal Server Error"}), 500

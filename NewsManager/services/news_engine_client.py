@@ -9,10 +9,10 @@ class AsyncHTTPNewsEngineClient:
         self.client = DaprClient()
         self.dapr_http_port = dapr_http_port
 
-    async def get_fresh_news(self, preferences):
+    def get_fresh_news(self, preferences):
         try:
             self.logger.info("Fetching fresh news from News Engine...")
-            response = await self.client.invoke_method_async(
+            response = self.client.invoke_method(
                 app_id="news_engine",
                 method_name="get-fresh-news",
                 data=json.dumps(preferences).encode("utf-8"),

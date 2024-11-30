@@ -5,7 +5,7 @@ class Config:
     CACHED_NEWS_MAX_AGE_MINUTES = 60
     NUM_ARTICLES_TO_SEND = 5
     DEBUG = os.getenv("DEBUG", True)
-    APP_PORT = os.getenv("APP_PORT", 5000)
+    APP_PORT = os.getenv("APP_PORT", "50053")
     EMAIL_API_ACCESSOR_SERVICE_APP_ID = os.getenv(
         "EMAIL_API_ACCESSOR_SERVICE_APP_ID", "email_api_accessor"
     )

@@ -13,12 +13,12 @@ class AsyncGRPCNewsApiClient:
         self.dapr_client = DaprClient()
         self.logger = logging.getLogger(__name__)
 
-    async def get_news_by_categories(self, categories, language, country) -> List[dict]:
+    def get_news_by_categories(self, categories, language, country) -> List[dict]:
         try:
             self.logger.info(
                 f"Getting news for categories: {categories}, language: {language}, country: {country}"
             )
-            response = await self.dapr_client.invoke_method_async(
+            response = self.dapr_client.invoke_method(
                 app_id=self.app_id,
                 method_name="get_news_by_categories",
                 content_type="application/grpc",

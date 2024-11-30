@@ -1,5 +1,16 @@
 
 services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - dapr-news-aggregator-network
+
   backend_for_frontend:
     build:
       context: .
@@ -16,17 +27,29 @@ services:
     environment:
         - DAPR_HTTP_PORT=3509
         - DAPR_GRPC_PORT=50009
+        - RABBITMQ_HOST=rabbitmq
 
   dapr_sidecar_backend_for_frontend:
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
     image: daprio/daprd:edge
+
     command: [ "./daprd",
                "--app-id", "backend_for_frontend",
                "--app-port", "5003",
                "--app-protocol", "http",
                "--dapr-http-port", "3509",
-               "--dapr-grpc-port", "50009"]
+               "--dapr-grpc-port", "50009",
+               "--resources-path", "/dapr/components"]
+    volumes:
+        - ./dapr/components:/dapr/components
     depends_on:
       - backend_for_frontend
+      - rabbitmq
     network_mode: "service:backend_for_frontend"
 
 
@@ -93,27 +116,39 @@ services:
       context: .
       dockerfile: NewsManager/Dockerfile
     ports:
-      - "5000:5000"
+      - "50053:50053"
     depends_on:
       - placement
       - redis
       - users_manager
+      - rabbitmq
     networks:
       - dapr-news-aggregator-network
     environment:
         - DAPR_HTTP_PORT=3503
         - DAPR_GRPC_PORT=50003
+        - RABBITMQ_HOST=rabbitmq
 
   dapr_sidecar_news_manager:
     image: daprio/daprd:edge
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 120s
     command: [ "./daprd",
                "--app-id", "news_manager",
-               "--app-port", "5000",
-               "--app-protocol", "http",
+               "--app-port", "50053",
+               "--app-protocol", "grpc",
                "--dapr-http-port", "3503",
-               "--dapr-grpc-port", "50003"]
+               "--dapr-grpc-port", "50003",
+                "--resources-path", "/dapr/components"]
+    volumes:
+        - ./dapr/components:/dapr/components
     depends_on:
       - news_manager
+      - rabbitmq
     network_mode: "service:news_manager"
 
   users_manager:
@@ -320,5 +355,5 @@ volumes:
   redis-data:
       driver: local
   postgres-data:
-    driver: local
+      driver: local
 

@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY NewsManager/ .
 
-EXPOSE 5000
+EXPOSE 50053
 
 CMD ["python", "server.py"]

@@ -85,7 +85,10 @@ class AsyncGRPCNewsApiClient:
 
                 # Sort articles based on the presence of 'url' and 'image'
                 # Articles with both 'url' and 'image' come first
-                articles.sort(key=lambda article: bool(article.url) and bool(article.image), reverse=True)
+                articles.sort(
+                    key=lambda article: bool(article.url) and bool(article.image),
+                    reverse=True,
+                )
 
                 # Take the first 10 articles
                 articles = articles[:10]

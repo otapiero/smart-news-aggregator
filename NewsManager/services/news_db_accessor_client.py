@@ -9,7 +9,7 @@ class AsyncHTTPNewsDBAccessorClient:
         self.client = DaprClient()
         self.app_id = app_id
 
-    async def get_cached_news(self, preferences):
+    def get_cached_news(self, preferences):
         try:
             data = {
                 "language": preferences.get("language"),
@@ -17,7 +17,7 @@ class AsyncHTTPNewsDBAccessorClient:
                 "categories": preferences.get("categories"),
             }
             self.logger.info("Checking cache for news...")
-            response = await self.client.invoke_method_async(
+            response = self.client.invoke_method(
                 app_id=self.app_id,
                 method_name="get_news",
                 data=json.dumps(data).encode("utf-8"),
@@ -31,7 +31,7 @@ class AsyncHTTPNewsDBAccessorClient:
             self.logger.error(f"Error checking cached news: {e}")
             return None
 
-    async def update_news(self, language, country, category, news):
+    def update_news(self, language, country, category, news):
         try:
             self.logger.info("Updating cache with fresh news...")
             data = {
@@ -40,7 +40,7 @@ class AsyncHTTPNewsDBAccessorClient:
                 "category": category,
                 "articles": news,
             }
-            response = await self.client.invoke_method_async(
+            response = self.client.invoke_method(
                 app_id=self.app_id,
                 method_name="update_news",
                 data=json.dumps(data).encode("utf-8"),
