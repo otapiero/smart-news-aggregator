@@ -19,7 +19,7 @@ class NewsApiConfig:
         "health": "news/Health",
         "sports": "news/Sports",
         "environment": "news/Environment",
-        "Science": "news/Science",
+        "science": "news/Science",
         "arts_and_entertainment": "news/Arts_and_Entertainment",
     }
 

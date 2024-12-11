@@ -67,7 +67,7 @@ def manage_users():
         return jsonify({"error": "Internal Server Error"}), 500
 
 
-@app.route("/news", methods=["GET"])
+@app.route("/news", methods=["POST"])
 def get_news():
     """Handles requests to fetch news."""
     try:
